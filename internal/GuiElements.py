@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QPushButton, QGroupBox, QVBoxLayout
+from PyQt5.QtWidgets import QPushButton, QGroupBox, QVBoxLayout, QLineEdit
 
 from CurrencyConverter.internal import AppConfigurations as conf
 

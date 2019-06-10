@@ -2,28 +2,32 @@ from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout,  QGridLayout, QGr
 from PyQt5.QtWidgets import QLabel, QPushButton, QLineEdit
 
 from datetime import datetime
+import unicodedata
 
 import CurrencyConverter.internal.AppConfigurations as conf
 from CurrencyConverter.internal.ConversionRateFetcher import ConversionRateFetcher
-from CurrencyConverter.internal.Elements import RightArrowButton, LeftArrowButton
+from CurrencyConverter.internal.History import CurrencyInformation, ConversionHistoryHandler
+from CurrencyConverter.internal.GuiElements import RightArrowButton, LeftArrowButton
 
 import threading
 
 class CurrencyConverterApp(QMainWindow):
 
-    def __init__(self):
+    def __init__(self, logger):
         super().__init__()
+        self.logger = logger    # use the logger to log stuff
         self.leftOffSet = conf.LEFTOFFSET
         self.topOffset = conf.TOPOFFSET
         self.width = conf.WIDTH
         self.height = conf.HEIGHT
         # variables
-        self.euroMyrConversionRate = 0.00
-        self.euroSgdConversionRate = 0.00
+        self.historyHandler = ConversionHistoryHandler(self.logger)
+        self.myrCurrency = CurrencyInformation("MYR")
+        self.sgdCurrency = CurrencyInformation("SGD")
+        #self.euroMyrConversionRate = 0.00
+        #self.euroSgdConversionRate = 0.00
         self.statusLabel = QLabel("")
         self.initializeGui()
-
-
 
     def initializeGui(self):
         self.setWindowTitle(f"{conf.TITLE} v{conf.VERSION}")
@@ -53,12 +57,12 @@ class CurrencyConverterApp(QMainWindow):
         topWindow = QWidget()
         topWindowLayout = QGridLayout()
 
-        self.myrConversionRateLabel = QLabel(f"1 EUR = {self.euroMyrConversionRate:3.4f} MYR")
+        self.myrConversionRateLabel = QLabel(f"1 {unicodedata.lookup('EURO SIGN')} = {self.myrCurrency.rate:3.4f} MYR")
         self.myrConversionRateDateLabel = QLabel(f"...")
         topWindowLayout.addWidget(self.myrConversionRateLabel, 1, 1, 1, 1)
         topWindowLayout.addWidget(self.myrConversionRateDateLabel, 1, 2, 1, 1)
 
-        self.sgdConversionRateLabel = QLabel(f"1 EUR = {self.euroSgdConversionRate:3.4f} SGD")
+        self.sgdConversionRateLabel = QLabel(f"1 {unicodedata.lookup('EURO SIGN')} = {self.sgdCurrency.rate:3.4f} SGD")
         self.sgdConversionRateDateLabel = QLabel(f"...")
         topWindowLayout.addWidget(self.sgdConversionRateLabel, 2, 1, 1, 1)
         topWindowLayout.addWidget(self.sgdConversionRateDateLabel, 2, 2, 1, 1)
@@ -84,7 +88,7 @@ class CurrencyConverterApp(QMainWindow):
         content = QWidget()
         contentLayout = QGridLayout()
 
-        euroBox = QGroupBox("EUR")
+        euroBox = QGroupBox(f"EUR {unicodedata.lookup('EURO SIGN')}")
         euroBoxLayout = QVBoxLayout()
         self.euroValue = QLineEdit()
         self.euroValue.setFixedHeight(conf.INPUTFIELDHEIGHT)
@@ -123,9 +127,25 @@ class CurrencyConverterApp(QMainWindow):
         contentLayout.addWidget(sgdBox, 4, 3, 3, 1)
 
         # status information
-        contentLayout.addWidget(QLabel("Status:"), 5, 1, 1, 1)
-        contentLayout.addWidget(self.statusLabel, 6, 1, 1, 1)
+        statusBox = QGroupBox("Status")
+        statusBoxayout = QVBoxLayout()
+        self.statusLabel.setFixedHeight(40)
+        statusBoxayout.addWidget(self.statusLabel)
 
+        self.saveHistoryButton = QPushButton()
+        self.saveHistoryButton.setText("save history")
+        self.saveHistoryButton.clicked.connect(self.historyHandler.saveHistory)
+        statusBoxayout.addWidget(self.saveHistoryButton)
+
+        self.showHistoryButton = QPushButton()
+        self.showHistoryButton.setText("show history")
+        self.showHistoryButton.clicked.connect(self.historyHandler.showHistory)
+        statusBoxayout.addWidget(self.showHistoryButton)
+        statusBox.setLayout(statusBoxayout)
+        #statusBox.setStyleSheet("background-color: white")
+        #statusBox.setAutoFillBackground(True)
+
+        contentLayout.addWidget(statusBox, 4, 1, 3, 1)
         content.setLayout(contentLayout)
         content.setFixedWidth(conf.CONTENTWIDTH)
         content.setFixedHeight(conf.CONTENTHEIGHT)
@@ -136,7 +156,7 @@ class CurrencyConverterApp(QMainWindow):
         convert from EUR to MYR
         """
         euroInput = self.getEuroInput()
-        myrValue = euroInput * self.euroMyrConversionRate
+        myrValue = euroInput * self.myrCurrency.rate
         self.myrValue.setText(f"{myrValue:4.2f}")
 
     def convertMYRtoEUR(self):
@@ -144,7 +164,7 @@ class CurrencyConverterApp(QMainWindow):
         convert from MYR to EUR
         """
         myrInput = self.getMYRInput()
-        euroValue = myrInput / self.euroMyrConversionRate
+        euroValue = myrInput / self.myrCurrency.rate
         self.euroValue.setText(f"{euroValue:4.2f}")
 
     def convertEURtoSGD(self):
@@ -152,7 +172,7 @@ class CurrencyConverterApp(QMainWindow):
         convert from EUR to SGD
         """
         euroInput = self.getEuroInput()
-        sgdValue = euroInput * self.euroSgdConversionRate
+        sgdValue = euroInput * self.sgdCurrency.rate
         self.sgdValue.setText(f"{sgdValue:4.2f}")
 
     def convertSGDtoEUR(self):
@@ -160,10 +180,11 @@ class CurrencyConverterApp(QMainWindow):
         convert from SGD to EUR
         """
         sgdInput = self.getSgdInput()
-        euroValue = sgdInput / self.euroSgdConversionRate
+        euroValue = sgdInput / self.sgdCurrency.rate
         self.euroValue.setText(f"{euroValue:4.2f}")
 
     def executeStartUpMethods(self):
+        self.logger.info("Initially obtaining conversion rates ...")
         self.statusLabel.setText("Initially obtaining conversion rates...")
         initUpdateThread = threading.Thread(target=self.updateConversionRate, args=("StartupConversionThread", ))
         initUpdateThread.start()
@@ -191,25 +212,29 @@ class CurrencyConverterApp(QMainWindow):
         except:
             return None
 
-
     def updateConversionRate(self, threadname="ConversionRateUpdateThread"):
-        print(f"[{threadname}] Fetching current conversion rate and updating it")
-        convMYRfetcher = ConversionRateFetcher()
+        self.logger.info(f"[{threadname}] Fetching current conversion rate and updating it")
+        convMYRfetcher = ConversionRateFetcher(self.logger)
         convMYRfetcher.fetch()
         myrRateDate = datetime.now()
-        convSGDfetcher = ConversionRateFetcher(webpage="https://thecurrencycalculator.com/EUR/SGD/")
+        convSGDfetcher = ConversionRateFetcher(self.logger, webpage="https://thecurrencycalculator.com/EUR/SGD/")
         convSGDfetcher.fetch()
         sgdRateDate = datetime.now()
         if convMYRfetcher.fetched:
             # set the values
-            print(f"1 Euro = {convMYRfetcher.euroToForeign} MYR")
-            self.myrConversionRateLabel.setText(f"1 EUR = {convMYRfetcher.euroToForeign:2.4f} MYR")
+            self.logger.info(f"1 Euro = {convMYRfetcher.euroToForeign} MYR")
+            self.myrConversionRateLabel.setText(f"1 {unicodedata.lookup('EURO SIGN')} = {convMYRfetcher.euroToForeign:2.4f} MYR")
             self.myrConversionRateDateLabel.setText(myrRateDate.isoformat(timespec='minutes'))
-            self.euroMyrConversionRate = convMYRfetcher.euroToForeign
+            self.myrCurrency.rate = convMYRfetcher.euroToForeign
+            self.myrCurrency.date = myrRateDate
         if convSGDfetcher.fetched:
-            print(f"1 Euro = {convSGDfetcher.euroToForeign} SGD")
-            self.sgdConversionRateLabel.setText(f"1 EUR = {convSGDfetcher.euroToForeign:2.4f} SGD")
+            self.logger.info(f"1 Euro = {convSGDfetcher.euroToForeign} SGD")
+            self.sgdConversionRateLabel.setText(f"1 {unicodedata.lookup('EURO SIGN')} = {convSGDfetcher.euroToForeign:2.4f} SGD")
             self.sgdConversionRateDateLabel.setText(sgdRateDate.isoformat(timespec='minutes'))
-            self.euroSgdConversionRate = convSGDfetcher.euroToForeign
+            self.sgdCurrency.rate = convSGDfetcher.euroToForeign
+            self.sgdCurrency.date = sgdRateDate
         # updating the status line
         self.statusLabel.setText("OK.")
+        if self.historyHandler.isReady:
+            self.historyHandler.addCurrencyInformation(self.myrCurrency, self.sgdCurrency)
+

@@ -3,8 +3,9 @@ from lxml import html
 
 class ConversionRateFetcher():
 
-    def __init__(self, webpage="https://thecurrencycalculator.com/EUR/MYR/"):
+    def __init__(self, logger, webpage="https://thecurrencycalculator.com/EUR/MYR/"):
         self.webpage = webpage
+        self.logger = logger
         self.fetched = False
         self.euroToForeign = float()
         self.foreignToEuro = float()
@@ -18,4 +19,5 @@ class ConversionRateFetcher():
             self.fetched = True
 
         except BaseException as bex:
-            print(bex)
+            self.logger.info(f"Unable to retrieve current conversion rate from: '{self.webpage}'")
+            self.logger.info(bex)
