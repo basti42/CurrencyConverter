@@ -1,4 +1,3 @@
-import numpy as np
 import os
 import pandas as pd
 import dateutil.parser
@@ -8,6 +7,9 @@ class CurrencyInformation:
         self.currency = currency
         self.rate = 0.00
         self.date = None
+
+    def __str__(self):
+        return f"{self.date.isoformat(timespec='minutes')} --- {self.rate:2.4f} {self.currency} = 1 EUR"
 
 
 class ConversionHistoryHandler:
@@ -48,6 +50,10 @@ class ConversionHistoryHandler:
         self.logger.info("Added new currency information to history")
 
     def saveHistory(self):
+        """
+        overrides the current history file
+        with all old and new history elements
+        """
         tmpdict = dict()
         tmpdict['myr_dates'] = [c.date for c in self.myrHistory]
         tmpdict['myr_rates'] = [c.rate for c in self.myrHistory]
@@ -58,4 +64,11 @@ class ConversionHistoryHandler:
         outframe.to_csv(self.filename, index=False)
 
     def showHistory(self):
-        pass
+        """
+        plots the history in a new window
+        """
+        for myr in self.myrHistory:
+            print(myr)
+
+
+

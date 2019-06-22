@@ -198,19 +198,28 @@ class CurrencyConverterApp(QMainWindow):
         try:
             return float(self.euroValue.text())
         except:
-            return None
+            try:
+                return float(self.euroValue.text().replace(',', '.'))
+            except:
+                return None
 
     def getMYRInput(self):
         try:
             return float(self.myrValue.text())
         except:
-            return None
+            try:
+                return float(self.myrValue.text().replace(',', '.'))
+            except:
+                return None
 
     def getSgdInput(self):
         try:
             return float(self.sgdValue.text())
         except:
-            return None
+            try:
+                return float(self.sgdValue.text().replace(',', '.'))
+            except:
+                return None
 
     def updateConversionRate(self, threadname="ConversionRateUpdateThread"):
         self.logger.info(f"[{threadname}] Fetching current conversion rate and updating it")
